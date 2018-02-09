@@ -1,0 +1,29 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "zvt", "zvt\zvt.csproj", "{A4E73CBF-C34F-4ED9-A53F-C8352A5781DE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{2468842B-0A8D-463C-B7D8-C4AB308BC994}"
+	ProjectSection(SolutionItems) = preProject
+		.nuget\NuGet.Config = .nuget\NuGet.Config
+		.nuget\NuGet.exe = .nuget\NuGet.exe
+		.nuget\NuGet.targets = .nuget\NuGet.targets
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A4E73CBF-C34F-4ED9-A53F-C8352A5781DE}.Debug|x86.ActiveCfg = Debug|x86
+		{A4E73CBF-C34F-4ED9-A53F-C8352A5781DE}.Debug|x86.Build.0 = Debug|x86
+		{A4E73CBF-C34F-4ED9-A53F-C8352A5781DE}.Release|x86.ActiveCfg = Release|x86
+		{A4E73CBF-C34F-4ED9-A53F-C8352A5781DE}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
