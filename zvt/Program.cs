@@ -196,7 +196,7 @@ namespace zvt
                 {
                     var r = RecvRawData(s);
 
-                    if (r[0] == 0x60 && r[1] == 0x0F) isSuccessful = true;
+                    if (r[0] == 0x06 && r[1] == 0x0F) isSuccessful = true;
 
                     SendRawData(s, new byte[] { 0x80, 0x00, 0x00 });
                 }
