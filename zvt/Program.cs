@@ -22,16 +22,13 @@ namespace zvt
             // LOG-Verzeichnis erstellen falls notwendig
             if (!Directory.Exists(logs)) Directory.CreateDirectory(logs);
 
-
             if (debugFile == null) debugFile = Path.Combine(logs, string.Format("zvt_{0:yyyyMMddhhmmss}.log", DateTime.Now));
 
             try
             {
                 File.AppendAllText(debugFile, format);
             }
-            catch
-            {
-            }
+            catch { }
         }
 
         public const byte DLE = 0x10;
@@ -39,8 +36,6 @@ namespace zvt
         public const byte ACK = 0x06;
 
         public const byte NAK = 0x15;
-
-
 
         static ushort CalcCrc2(IEnumerable<byte> data)
         {
@@ -53,10 +48,8 @@ namespace zvt
 
                 for (int j = 0; j < 8; j++)
                 {
-                    if ((crc & 1) > 0)
-                        crc = (crc >> 1) ^ 0x8408;
-                    else
-                        crc = crc >> 1;
+                    if ((crc & 1) > 0) crc = (crc >> 1) ^ 0x8408;
+                    else crc = crc >> 1;
                 }
 
                 t[i] = crc;
@@ -75,9 +68,8 @@ namespace zvt
                 crc = t[lb ^ l[i]] ^ hb;
             }
 
-            return (ushort) ((crc >> 8) | ((crc & 0xFF) << 8));
+            return (ushort)((crc >> 8) | ((crc & 0xFF) << 8));
         }
-
 
         static byte[] DecimalToBcd(decimal value)
         {
@@ -96,8 +88,6 @@ namespace zvt
 
             return ret.Reverse().ToArray();
         }
-
-
 
         static int SendRawData(SerialPort s, IEnumerable<byte> data)
         {
@@ -123,7 +113,7 @@ namespace zvt
             var cs = new byte[] { 0x1C, 0xA2 };
             s.Write(cs2, 0, 2);
 
-            var debugOutput  = string.Join(" ", data.Select(i => string.Format("{0:X2}", i)));
+            var debugOutput = string.Join(" ", data.Select(i => string.Format("{0:X2}", i)));
             Debug("HOST -> TERM: " + debugOutput + "\r\n");
 
             Thread.Sleep(100);
@@ -140,7 +130,7 @@ namespace zvt
 
             if (a != 0x10 || b != 0x02)
             {
-                Debug("ERROR       : " + string.Join(" ", new int[] {a, b}.Select(i => string.Format("{0:X2}", i))) + "\r\n");
+                Debug("ERROR       : " + string.Join(" ", new int[] { a, b }.Select(i => string.Format("{0:X2}", i))) + "\r\n");
 
                 throw new Exception();
             }
@@ -160,7 +150,7 @@ namespace zvt
                 var r = (byte)s.ReadByte();
 
                 if (r == DLE) r = (byte)s.ReadByte();
-                     
+
                 data[3 + i] = r;
             }
 
@@ -175,19 +165,30 @@ namespace zvt
             return data;
         }
 
-
-
-
-        static bool Pay(SerialPort s, decimal amount)
+        static bool Pay(SerialPort s, decimal amount, decimal cashbackAmount)
         {
-            var payCommand = new List<byte>(new byte[] { 0x06, 0x01, 0x07, 0x04 });
+            byte totalLength = 0x12;
+
+            var payCommand = new List<byte>(new byte[] { 0x06, 0x01, totalLength, 0x04 });
             payCommand.AddRange(DecimalToBcd(amount));
 
-            int start = SendRawData(s, payCommand);
-            var start_recv = RecvRawData(s);
+            // TLV-Container Start
+            payCommand.Add(0x06);
+            payCommand.Add(0x09);
+            // Cashback-Tag
+            payCommand.Add(0x1F);
+            payCommand.Add(0x25);
+            // Length
+            payCommand.Add(0x06);
+            // Amount in BCD
+            payCommand.AddRange(DecimalToBcd(cashbackAmount));
+
+            SendRawData(s, payCommand);
+            RecvRawData(s);
 
             var pay = RecvRawData(s);
             SendRawData(s, new byte[] { 0x80, 0x00, 0x00 });
+
             if (pay[0] == 0x04 && pay[1] == 0x0F && pay[4] == 0)
             {
                 var isSuccessful = false;
@@ -195,14 +196,12 @@ namespace zvt
                 try
                 {
                     var r = RecvRawData(s);
-
-                    if (r[0] == 0x06 && r[1] == 0x0F) isSuccessful = true;
+                    // Sucess = 0x06 0F 00
+                    if (r[0] == 0x06 && r[1] == 0x0F && r[2] == 0x00) isSuccessful = true;
 
                     SendRawData(s, new byte[] { 0x80, 0x00, 0x00 });
                 }
-                catch
-                {
-                }
+                catch { }
 
                 return isSuccessful;
             }
@@ -226,8 +225,6 @@ namespace zvt
             return pay[0] == 0x04 && pay[1] == 0x0F;
         }
 
-
-
         static void Registration(SerialPort s)
         {
             SendRawData(s, new byte[] { 0x06, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00 });
@@ -242,7 +239,6 @@ namespace zvt
             int r = SendRawData(s, new byte[] { 0x06, 0x02, 0x00 });
             var a = RecvRawData(s);
         }
-
 
         static string portName = "com3";
 
@@ -324,7 +320,6 @@ namespace zvt
                 /*var r = RecvRawData(s);
                 SendRawData(s, new byte[] { 0x80, 0x00, 0x00 });*/
 
-
                 /*var x = SendRawData(s, new byte[] { 0x06, 0xE0, 0x02, 0xF0, 0x00 });
                 var y = RecvRawData(s);*/
 
@@ -334,11 +329,26 @@ namespace zvt
                 switch (command)
                 {
                     case "-pay":
+                    {
                         Registration(s);
 
-                        if (Pay(s, decimal.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture)) == true) exitCode = 0;
-                        break;
+                        var paymentAmount = decimal.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture);
 
+                        var cashbackAmount = 0.0m;
+
+                        if (args.Length > 2)
+                        {
+                            var secondCommand = args[2].ToLower();
+
+                            if (secondCommand == "-cashback")
+                            {
+                                cashbackAmount = decimal.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture);
+                            }
+                        }
+
+                        if (Pay(s, paymentAmount, cashbackAmount) == true) exitCode = 0;
+                        break;
+                    }
                     case "-endofday":
                         Registration(s);
 
@@ -348,7 +358,7 @@ namespace zvt
                         break;
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Debug(e.Message + "\r\n" + e.StackTrace);
 
@@ -356,7 +366,7 @@ namespace zvt
             }
             finally
             {
-                if(s != null) s.Close();
+                if (s != null) s.Close();
             }
 
             Console.WriteLine("Exit code = " + exitCode);
