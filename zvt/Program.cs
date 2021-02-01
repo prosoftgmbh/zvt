@@ -139,19 +139,41 @@ namespace zvt
             var c1 = (byte)s.ReadByte();
             var length = (byte)s.ReadByte();
 
-            var data = new byte[3 + length];
+            ushort actualLength = length;
+
+            var arrayOffset = 3;
+
+            var lengthArray = new byte[1] { length };
+
+            if (length == 0xFF)
+            {
+                var loByte = (byte)s.ReadByte();
+                var hiByte = (byte)s.ReadByte();
+
+                actualLength = (ushort)((hiByte << 8) + loByte);
+                arrayOffset = 5;
+                lengthArray = new byte[3] { length, loByte, hiByte };
+            }
+
+            var data = new byte[arrayOffset + actualLength];
 
             data[0] = c0;
             data[1] = c1;
-            data[2] = length;
 
-            for (int i = 0; i < length; i++)
+            for (int i = 0; i < lengthArray.Length; i++)
+            {
+                var value = lengthArray[i];
+
+                data[2 + i] = value;
+            }
+
+            for (int i = 0; i < actualLength; i++)
             {
                 var r = (byte)s.ReadByte();
 
                 if (r == DLE) r = (byte)s.ReadByte();
 
-                data[3 + i] = r;
+                data[arrayOffset + i] = r;
             }
 
             var checksum = s.ReadByte() << 24 + s.ReadByte() << 16 + s.ReadByte() << 8 + s.ReadByte();
