@@ -189,7 +189,9 @@ namespace zvt
             var pay = RecvRawData(s);
             SendRawData(s, new byte[] { 0x80, 0x00, 0x00 });
 
-            if (pay[0] == 0x04 && pay[1] == 0x0F && pay[4] == 0)
+            // length = pay[2]
+            // Wenn length = 0xFF ist, sind 3 bytes für die länge und pay[6] muss auf 0 geprüft werden statt pay[4]
+            if (pay[0] == 0x04 && pay[1] == 0x0F && (pay[2] == 0xFF && pay[6] == 0 || pay[2] != 0xFF && pay[4] == 0))
             {
                 var isSuccessful = false;
 
