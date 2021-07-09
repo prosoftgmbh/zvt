@@ -215,7 +215,7 @@ namespace zvt
             if (pay[0] == 0x04 && pay[1] == 0x0F && (pay[2] == 0xFF && pay[6] == 0 || pay[2] != 0xFF && pay[4] == 0))
             {
                 var lengthOffset = pay[2] == 0xFF ? 2 : 0;
-                var extendedFailed = pay.Length > 8 + lengthOffset && pay[5 + lengthOffset] == 0x06 && pay[7 + lengthOffset] == 0x1F && pay[8 + lengthOffset] == 0x16;
+                var extendedFailed = (pay.Length > 8 + lengthOffset) && pay[5 + lengthOffset] == 0x06 && pay[7 + lengthOffset] == 0x1F && pay[8 + lengthOffset] == 0x16;
 
                 var isSuccessful = false;
 
