@@ -15,6 +15,85 @@ namespace zvt
     {
         static string debugFile;
 
+        public const byte DLE = 0x10;
+        public const byte ACK = 0x06;
+        public const byte NAK = 0x15;
+
+        static string portName = "com3";
+        static string logs = @"z:\zvt_logs";
+
+        static bool verbose = false;
+
+        static int timeout = 60000;
+
+        static string stopbits = "1";
+
+        static readonly Dictionary<byte, byte> StatusInformationFieldLengths = new Dictionary<byte, byte>()
+        {
+            // Amount
+            { 0x04, 6 },
+            // Trace
+            { 0x0B, 3 },
+            // Orig. trace
+            { 0x37, 3 },
+            // Time
+            { 0x0C, 3 },
+            // Date
+            { 0x0D, 2 },
+            // Expiry date
+            { 0x0E, 2 },
+            // Sequence number
+            { 0x17, 2 },
+            // Payment type
+            { 0x19, 1 },
+            // PAN/EF_ID
+            { 0x22, 0 /*LLVAR*/ },
+            // Terminal-ID
+            { 0x29, 4 },
+            // AID
+            { 0x3B, 8 },
+            // CC
+            { 0x49, 2 },
+            // Blocked goods groups
+            { 0x4C, 0 /*LLVAR*/ },
+            // Receipt no.
+            { 0x87, 2 },
+            // Card type
+            { 0x8A, 1 },
+            // Card type ID
+            { 0x8C, 1 },
+            // Payment record
+            { 0x9A, 103 },
+            // AID parameter
+            { 0xBA, 5 },
+            // VU number
+            { 0x2A, 15 },
+            // Additional text
+            { 0x3C, 0 /*LLLVAR*/ },
+            // Result code AS
+            { 0xA0, 1 },
+            // Turnover no
+            { 0x88, 3 },
+            // Card name
+            { 0x8B, 0 /*LLVAR*/ },
+            // Additional data
+            { 0x06, 0 /*TLV*/ },
+        };
+
+        static readonly Dictionary<byte, VariableLengthType> VariableLengthStatusInformationFields = new Dictionary<byte, VariableLengthType>()
+        {
+            // PAN/EF_ID
+            { 0x22, VariableLengthType.LLVAR },
+            // Blocked goods groups
+            { 0x4C, VariableLengthType.LLVAR },
+            // Additional text
+            { 0x3C, VariableLengthType.LLLVAR },
+            // Card name
+            { 0x8B, VariableLengthType.LLVAR },
+            // Additional data
+            { 0x06, VariableLengthType.TLV },
+        };
+
         public static void Debug(string format)
         {
             if (!verbose) return;
@@ -30,12 +109,6 @@ namespace zvt
             }
             catch { }
         }
-
-        public const byte DLE = 0x10;
-
-        public const byte ACK = 0x06;
-
-        public const byte NAK = 0x15;
 
         static ushort CalcCrc2(IEnumerable<byte> data)
         {
@@ -227,17 +300,95 @@ namespace zvt
 
                     SendRawData(s, new byte[] { 0x80, 0x00, 0x00 });
                 }
-                catch (Exception ex) 
+                catch (Exception ex)
                 {
                     if (ex.Message != null) Debug($"ERROR       : {ex.Message}");
                 }
 
                 if (extendedFailed) return false;
 
+                if (isSuccessful)
+                {
+                    WritePayResultJson(pay, 5);
+                }
+
                 return isSuccessful;
             }
 
             return false;
+        }
+
+        static void WritePayResultJson(byte[] message, int startIndex)
+        {
+            byte? cardType = null;
+
+            for (int i = startIndex; i < message.Length; i++)
+            {
+                var bmpCode = message[i];
+
+                if (bmpCode == 0x8A)
+                {
+                    cardType = message[i + 1];
+                    break;
+                }
+                else
+                {
+                    var length = StatusInformationFieldLengths[bmpCode];
+
+                    // Ist es ein Feld mit variabler Länge?
+                    if (length == 0)
+                    {
+                        var variableLengthType = VariableLengthStatusInformationFields[bmpCode];
+
+                        switch (variableLengthType)
+                        {
+                            // Beispiel LLVAR: F1 F0 = 10
+                            case VariableLengthType.LLVAR:
+                            {
+                                var f1 = message[i + 1];
+                                var f2 = message[i + 2];
+
+                                f1 &= 0x0F;
+                                f2 &= 0x0F;
+
+                                length = (byte)(f1 * 10 + f2);
+                                break;
+                            }// Beispiel LLLVAR: F1 F0 F3 = 103
+                            case VariableLengthType.LLLVAR:
+                            {
+                                var f1 = message[i + 1];
+                                var f2 = message[i + 2];
+                                var f3 = message[i + 3];
+
+                                f1 &= 0x0F;
+                                f2 &= 0x0F;
+                                f3 &= 0x0F;
+
+                                length = (byte)(f1 * 100 + f2 * 10 + f3);
+
+                                break;
+                            }
+                            case VariableLengthType.TLV:
+                            {
+                                // TLV-Container sollten erst kommen sobald wir unsere Information haben
+                                return;
+                            }// Bei nicht definiertem Fall müssen wir abbrechen
+                            default: return;
+                        }
+                    }
+
+                    i += length;
+                }
+            }
+
+            // Wenn wir keinen Karten-Typen bekommen haben (warum auch immer) brechen wir ab
+            if (cardType == null) return;
+
+            var path = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "result.json");
+
+            var json = "{\"CardType\":" + $"\"{cardType}\"" + "}";
+
+            File.WriteAllText(path, json);
         }
 
         static bool EndOfDay(SerialPort s)
@@ -270,16 +421,6 @@ namespace zvt
             int r = SendRawData(s, new byte[] { 0x06, 0x02, 0x00 });
             var a = RecvRawData(s);
         }
-
-        static string portName = "com3";
-
-        static string logs = @"z:\zvt_logs";
-
-        static bool verbose = false;
-
-        static int timeout = 60000;
-
-        static string stopbits = "1";
 
         static int Main(string[] args)
         {
@@ -408,5 +549,12 @@ namespace zvt
 
             return exitCode;
         }
+    }
+
+    public enum VariableLengthType
+    {
+        LLVAR = 0,
+        LLLVAR = 1,
+        TLV = 2
     }
 }
