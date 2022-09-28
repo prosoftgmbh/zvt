@@ -351,7 +351,7 @@ namespace zvt
                                 f1 &= 0x0F;
                                 f2 &= 0x0F;
 
-                                length = (byte)(f1 * 10 + f2);
+                                length = (byte)((f1 * 10 + f2) + 2);
                                 break;
                             }// Beispiel LLLVAR: F1 F0 F3 = 103
                             case VariableLengthType.LLLVAR:
@@ -364,7 +364,7 @@ namespace zvt
                                 f2 &= 0x0F;
                                 f3 &= 0x0F;
 
-                                length = (byte)(f1 * 100 + f2 * 10 + f3);
+                                length = (byte)((f1 * 100 + f2 * 10 + f3) + 3);
 
                                 break;
                             }
