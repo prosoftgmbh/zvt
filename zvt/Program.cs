@@ -307,10 +307,10 @@ namespace zvt
 
                 if (extendedFailed) return false;
 
-                if (isSuccessful)
-                {
-                    WritePayResultJson(pay, 5);
-                }
+                //if (isSuccessful)
+                //{
+                //    WritePayResultJson(pay, 5);
+                //}
 
                 return isSuccessful;
             }
